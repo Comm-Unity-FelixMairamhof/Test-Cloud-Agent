@@ -1,22 +1,36 @@
 import { LoginForm } from "@/components/LoginForm";
+import { TemperatureOrnament } from "@/components/login/TemperatureOrnament";
+
+const appName =
+  process.env.NEXT_PUBLIC_APP_NAME ?? "Temperatursteuerung";
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-emerald-950 text-emerald-50 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-md space-y-8">
-        <header className="text-center space-y-2">
-          <p className="text-emerald-300 text-sm font-medium tracking-wide uppercase">
-            IoT-Wizard
-          </p>
-          <h1 className="text-2xl font-semibold">
-            {process.env.NEXT_PUBLIC_APP_NAME ?? "Temperatursteuerung"}
-          </h1>
-          <p className="text-emerald-200/80 text-sm">
-            Gebäude, Stockwerke, Räume und Heizkörper steuern
-          </p>
-        </header>
-        <LoginForm />
+    <div className="login-scene">
+      <div className="login-scene__ambient" aria-hidden="true">
+        <div className="login-scene__mesh" />
+        <div className="login-scene__grain" />
       </div>
+
+      <aside className="login-scene__brand">
+        <div className="login-brand__ornament-wrap">
+          <TemperatureOrnament />
+        </div>
+        <p className="login-brand__eyebrow">IoT-Wizard</p>
+        <h1 className="login-brand__title">
+          Wärme mit
+          <br />
+          Weitblick.
+        </h1>
+        <p className="login-brand__lead">
+          Steuern Sie Gebäude, Stockwerke, Räume und Heizkörper — klar,
+          mobil und im Einklang mit Ihrer Nachhaltigkeitsstrategie.
+        </p>
+      </aside>
+
+      <main className="login-scene__panel" id="main-content">
+        <LoginForm appName={appName} />
+      </main>
     </div>
   );
 }
