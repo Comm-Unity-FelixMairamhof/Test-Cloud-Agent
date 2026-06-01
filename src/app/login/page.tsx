@@ -1,10 +1,24 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { LoginForm } from "@/components/LoginForm";
 import { TemperatureOrnament } from "@/components/login/TemperatureOrnament";
+import { useAuth } from "@/contexts/auth-context";
 
 const appName =
   process.env.NEXT_PUBLIC_APP_NAME ?? "Temperatursteuerung";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading, pendingTwoFa } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && !pendingTwoFa) {
+      router.replace("/dashboard");
+    }
+  }, [isAuthenticated, isLoading, pendingTwoFa, router]);
+
   return (
     <div className="login-scene">
       <div className="login-scene__ambient" aria-hidden="true">
