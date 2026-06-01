@@ -1,0 +1,19 @@
+{
+  "name": "IoT-Wizard Temperatursteuerung",
+  "short_name": "IoT-Wizard",
+  "description": "Mobile Steuerung von Raumtemperaturen über ThingsBoard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#059669",
+  "orientation": "portrait-primary",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
