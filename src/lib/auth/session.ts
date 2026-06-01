@@ -1,4 +1,5 @@
 import type { AuthContext, StoredSession, ThingsboardUser } from "@/types/thingsboard";
+import { invalidateSessionCache } from "@/lib/auth/session-store";
 
 const SESSION_STORAGE_KEY = "iot-wizard.tb.session";
 
@@ -17,6 +18,7 @@ export function saveStoredSession(
 
   if (isBrowser()) {
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    invalidateSessionCache();
   }
 
   return session;
@@ -58,6 +60,7 @@ export function updateStoredTokens(
   };
 
   sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updated));
+  invalidateSessionCache();
   return updated;
 }
 
@@ -69,12 +72,14 @@ export function updateStoredUser(user: ThingsboardUser): StoredSession | null {
 
   const updated: StoredSession = { ...session, user };
   sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(updated));
+  invalidateSessionCache();
   return updated;
 }
 
 export function clearStoredSession(): void {
   if (isBrowser()) {
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    invalidateSessionCache();
   }
 }
 
