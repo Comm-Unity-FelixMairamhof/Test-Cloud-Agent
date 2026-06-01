@@ -1,34 +1,37 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-
-const thingsboardUrl =
-  process.env.NEXT_PUBLIC_THINGSBOARD_URL ??
-  "https://kundenportal.iot-wizard.at";
+import {
+  checkThingsBoardReachable,
+  getThingsBoardUrl,
+  loginWithThingsBoard,
+} from "@/lib/thingsboard/auth";
+import { FormEvent, useEffect, useId, useState } from "react";
 
 type ApiStatus = "checking" | "reachable" | "unreachable";
 
-export function LoginForm() {
+type LoginFormProps = {
+  appName: string;
+};
+
+export function LoginForm({ appName }: LoginFormProps) {
+  const formId = useId();
   const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
-  const [message, setMessage] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    type: "success" | "error" | "info";
+    text: string;
+  } | null>(null);
+
+  const thingsboardUrl = getThingsBoardUrl();
 
   useEffect(() => {
     let cancelled = false;
 
     async function checkApi() {
-      try {
-        const response = await fetch(`${thingsboardUrl}/api/auth/user`, {
-          method: "GET",
-          credentials: "omit",
-        });
-        if (!cancelled) {
-          // 401/403 means the API is up; network errors mean unreachable.
-          setApiStatus(response.status === 401 || response.status === 403 ? "reachable" : response.ok ? "reachable" : "unreachable");
-        }
-      } catch {
-        if (!cancelled) {
-          setApiStatus("unreachable");
-        }
+      const status = await checkThingsBoardReachable();
+      if (!cancelled) {
+        setApiStatus(status);
       }
     }
 
@@ -38,73 +41,146 @@ export function LoginForm() {
     };
   }, []);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setMessage(
-      "Login mit ThingsBoard ist in Phase 1 geplant — die Entwicklungsumgebung ist bereit.",
-    );
+    setFeedback(null);
+    setIsSubmitting(true);
+
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const username = String(data.get("username") ?? "").trim();
+    const password = String(data.get("password") ?? "");
+
+    const result = await loginWithThingsBoard(username, password);
+
+    setIsSubmitting(false);
+
+    if (result.ok) {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("tb_token", result.token);
+        if (result.refreshToken) {
+          sessionStorage.setItem("tb_refresh_token", result.refreshToken);
+        }
+      }
+      setFeedback({
+        type: "success",
+        text: "Angemeldet — Dashboard folgt in Phase 1.",
+      });
+      return;
+    }
+
+    setFeedback({ type: "error", text: result.error });
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-2xl border border-emerald-800/60 bg-emerald-900/40 p-6 shadow-lg space-y-4"
+    <section
+      className="login-card"
+      aria-labelledby={`${formId}-title`}
     >
+      <header className="login-card__header">
+        <h2 id={`${formId}-title`} className="login-card__title">
+          Anmelden
+        </h2>
+        <p className="login-card__subtitle">
+          Mit Ihren Zugangsdaten für {appName}
+        </p>
+      </header>
+
       <div
-        className="rounded-lg px-3 py-2 text-sm border"
+        className={`login-status login-status--${
+          apiStatus === "checking"
+            ? "checking"
+            : apiStatus === "reachable"
+              ? "ok"
+              : "warn"
+        }`}
         data-testid="api-status"
         role="status"
       >
-        {apiStatus === "checking" && (
-          <span className="text-emerald-200">ThingsBoard API wird geprüft…</span>
-        )}
-        {apiStatus === "reachable" && (
-          <span className="text-emerald-300 border-emerald-700">
-            ThingsBoard erreichbar ({thingsboardUrl})
-          </span>
-        )}
-        {apiStatus === "unreachable" && (
-          <span className="text-amber-300 border-amber-800">
-            ThingsBoard nicht erreichbar — lokale UI funktioniert trotzdem
-          </span>
-        )}
+        <span className="login-status__dot" aria-hidden="true" />
+        <span>
+          {apiStatus === "checking" && "Portal-Verbindung wird geprüft …"}
+          {apiStatus === "reachable" &&
+            `Portal erreichbar — ${thingsboardUrl.replace(/^https?:\/\//, "")}`}
+          {apiStatus === "unreachable" &&
+            "Portal von hier nicht erreichbar (z. B. CORS). Formular bleibt nutzbar."}
+        </span>
       </div>
 
-      <label className="block space-y-1">
-        <span className="text-sm text-emerald-200">E-Mail</span>
-        <input
-          type="email"
-          name="username"
-          autoComplete="username"
-          required
-          className="w-full rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-emerald-50 placeholder:text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-          placeholder="name@beispiel.at"
-        />
-      </label>
-
-      <label className="block space-y-1">
-        <span className="text-sm text-emerald-200">Passwort</span>
-        <input
-          type="password"
-          name="password"
-          autoComplete="current-password"
-          required
-          className="w-full rounded-lg border border-emerald-700 bg-emerald-950 px-3 py-2 text-emerald-50 placeholder:text-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-        />
-      </label>
-
-      <button
-        type="submit"
-        className="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 text-emerald-950 font-semibold py-2.5 transition-colors"
-      >
-        Anmelden
-      </button>
-
-      {message && (
-        <p className="text-sm text-center text-emerald-200" role="alert">
-          {message}
-        </p>
+      {feedback && (
+        <div
+          className={`login-status login-status--${
+            feedback.type === "error" ? "error" : feedback.type === "success" ? "ok" : "checking"
+          }`}
+          role="alert"
+          style={{ marginTop: "-0.5rem", marginBottom: "1rem" }}
+        >
+          <span className="login-status__dot" aria-hidden="true" />
+          <span>{feedback.text}</span>
+        </div>
       )}
-    </form>
+
+      <form onSubmit={handleSubmit} noValidate>
+        <label className="login-field" htmlFor={`${formId}-email`}>
+          <span className="login-field__label">E-Mail</span>
+          <input
+            id={`${formId}-email`}
+            className="login-field__input"
+            type="email"
+            name="username"
+            autoComplete="username"
+            inputMode="email"
+            required
+            disabled={isSubmitting}
+            placeholder="name@beispiel.at"
+          />
+        </label>
+
+        <label className="login-field" htmlFor={`${formId}-password`}>
+          <span className="login-field__label">Passwort</span>
+          <div className="login-field__control">
+            <input
+              id={`${formId}-password`}
+              className="login-field__input login-field__input--with-toggle"
+              type={showPassword ? "text" : "password"}
+              name="password"
+              autoComplete="current-password"
+              required
+              disabled={isSubmitting}
+            />
+            <button
+              type="button"
+              className="login-field__toggle"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-pressed={showPassword}
+              aria-label={
+                showPassword ? "Passwort verbergen" : "Passwort anzeigen"
+              }
+            >
+              {showPassword ? "Aus" : "An"}
+            </button>
+          </div>
+        </label>
+
+        <button
+          type="submit"
+          className="login-submit"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "Wird angemeldet …" : "Zum Dashboard"}
+        </button>
+      </form>
+
+      <p className="login-footer">
+        Nachhaltige Gebäudesteuerung von{" "}
+        <a
+          href="https://iot-wizard.at"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          IoT-Wizard
+        </a>
+      </p>
+    </section>
   );
 }
